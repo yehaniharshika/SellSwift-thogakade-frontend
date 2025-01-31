@@ -82,8 +82,8 @@ const customerSlice = createSlice({
             .addCase(saveCustomer.rejected, (_, action) => {
                 console.error("Failed to save customer:", action.payload);
             })
-            .addCase(saveCustomer.pending, (state, action) => {
-                console.error("Pending");
+            .addCase(saveCustomer.pending, (_, action) => {
+                console.error("Pending save customer",action.payload);
             });
 
         builder
@@ -91,7 +91,7 @@ const customerSlice = createSlice({
                 console.error("Failed to delete customer:", action.payload);
             })
             .addCase(deleteCustomer.fulfilled, (state, action) => {
-                return state = state.filter((customer:Customer)=> customer.id !== action.payload);
+                return state = state.filter((customer:Customer)=> customer.id !== action.payload.id);
             })
             .addCase(deleteCustomer.pending, (_, action) => {
                 console.log("Pending delete customer",action.payload);

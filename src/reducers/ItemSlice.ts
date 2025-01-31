@@ -82,13 +82,13 @@ const itemSlice = createSlice({
             .addCase(saveItem.rejected, (_, action) => {
                 console.error("Failed to save item:", action.payload);
             })
-            .addCase(saveItem.pending, (state, action) => {
-                console.error("Pending");
+            .addCase(saveItem.pending, (_, action) => {
+                console.error("Pending save item",action.payload);
             });
 
         builder
             .addCase(deleteItem.fulfilled, (state, action) => {
-                return state = state.filter((item:Item) => item.code !== action.payload);
+                return state = state.filter((item:Item) => item.code !== action.payload.code);
             })
             .addCase(deleteItem.rejected, (_, action) => {
                 console.error("Failed to delete item:", action.payload);
@@ -99,7 +99,7 @@ const itemSlice = createSlice({
 
         builder
             .addCase(updateItem.fulfilled,(state,action) => {
-                const item = state.find((item:Item) => item.code === action.payload);
+                const item = state.find((item:Item) => item.code === action.payload.code);
                 if (item) {
                     item.itemName = action.payload.itemName;
                     item.quantity = action.payload.quantity;
@@ -127,4 +127,5 @@ const itemSlice = createSlice({
     }
 });
 
+export const {addItem,updatedItem,deletedItem} = itemSlice.actions;
 export default itemSlice.reducer;

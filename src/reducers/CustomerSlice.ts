@@ -88,10 +88,10 @@ const customerSlice = createSlice({
 
         builder
             .addCase(deleteCustomer.rejected, (_, action) => {
-                console.error("Failed to save customer:", action.payload);
+                console.error("Failed to delete customer:", action.payload);
             })
             .addCase(deleteCustomer.fulfilled, (state, action) => {
-                return state = state.filter((customer:Customer)=> customer.email !== action.payload.email);
+                return state = state.filter((customer:Customer)=> customer.id !== action.payload);
             })
             .addCase(deleteCustomer.pending, (_, action) => {
                 console.log("Pending delete customer",action.payload);
@@ -99,12 +99,13 @@ const customerSlice = createSlice({
 
         builder
             .addCase(updateCustomer.rejected, (_, action) => {
-                console.error("Failed to save customer:", action.payload);
+                console.error("Failed to update customer:", action.payload);
             })
             .addCase(updateCustomer.fulfilled, (state, action) => {
-                const customer = state.find((customer:Customer) => customer.email === action.payload.email);
+                const customer = state.find((customer:Customer) => customer.id === action.payload.id);
                 if (customer) {
                     customer.name = action.payload.name;
+                    customer.nic = action.payload.nic;
                     customer.phone = action.payload.phone;
                 }
             })
@@ -114,13 +115,13 @@ const customerSlice = createSlice({
 
         builder
             .addCase(getCustomers.fulfilled, (_, action) => {
-            return action.payload;
+                return action.payload;
             })
             .addCase(getCustomers.pending, (_, action) => {
                 console.log("Pending get customer:", action.payload);
             })
             .addCase(getCustomers.rejected, (_, action) => {
-                console.error("Failed to save customer:", action.payload);
+                console.error("Failed to get customers:", action.payload);
             })
 
     }

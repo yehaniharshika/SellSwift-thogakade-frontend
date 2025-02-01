@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { getCustomers } from "../reducers/CustomerSlice.ts";
 import { getItems } from "../reducers/ItemSlice.ts";
 import { AppDispatch, RootState } from "../store/Store.ts";
-import { createOrder } from "../reducers/OrderSlice.ts"; // Import the createOrder action
+import { createOrder } from "../reducers/OrderSlice.ts";
+import {jsPDF} from "jspdf";
 
 function PlaceOrder() {
   const dispatch = useDispatch<AppDispatch>();
@@ -114,7 +115,6 @@ function PlaceOrder() {
   };
 
   // Place the order
-  // Place the order
   const handlePlaceOrder = () => {
     // Create the order data, adding OrderDetailsID to each item
     const orderData = {
@@ -133,8 +133,82 @@ function PlaceOrder() {
     dispatch(createOrder(orderData));
     console.log("Order placed:", orderData)
     alert("Order placed successfully!");
-    resetForm();
   };
+
+  const generateBill = () => {
+    if (!orderId || !orderDate || orderItems.length === 0 || !selectedCustomer) {
+      alert("Missing order details or items. Please ensure the order is created.");
+      return;
+    }
+
+    const customer = customers.find((cust) => cust.id === selectedCustomer);
+    const customerId = customer ? customer.id : "Unknown Customer";
+
+    const doc = new jsPDF();
+
+    // Add Ubuntu Font
+    doc.addFileToVFS("Ubuntu-Regular.ttf", "<BASE64_ENCODED_UBUNTU_REGULAR>");
+    doc.addFont("Ubuntu-Regular.ttf", "Ubuntu", "normal");
+    doc.addFileToVFS("Ubuntu-Bold.ttf", "<BASE64_ENCODED_UBUNTU_BOLD>");
+    doc.addFont("Ubuntu-Bold.ttf", "Ubuntu", "bold");
+
+    // Use the bold Ubuntu font for the title
+    doc.setFont("Ubuntu", "bold");
+    doc.setFontSize(20);
+    doc.text("SellSwift", 80, 20);
+
+    // Use regular Ubuntu font for other text
+    doc.setFont("Ubuntu", "normal");
+    doc.setFontSize(12);
+    doc.text("66, DS Senanayaka Street, Panadura", 65, 30);
+    doc.text("Tel: 038-2233185", 85, 40);
+    doc.line(20, 45, 190, 45); // Line separator
+
+    // Order Details
+    doc.text(`Order ID: ${orderId}`, 20, 55);
+    doc.text(`Order Date: ${orderDate}`, 20, 65);
+    doc.text(`Customer: ${customerId}`, 20, 75);
+
+
+    // Table Headers
+    let yOffset = 90;
+    doc.setFontSize(10);
+    doc.text("No", 20, yOffset);
+    doc.text("Item Name", 40, yOffset);
+    doc.text("Qty", 100, yOffset);
+    doc.text("Price", 120, yOffset);
+    doc.text("Total", 150, yOffset);
+    doc.line(20, yOffset + 5, 190, yOffset + 5); // Table header line
+
+    // Order Items
+    orderItems.forEach((item, index) => {
+      yOffset += 10;
+      const itemPrice = Number(item.price);
+      const totalPrice = Number(item.totalPrice);
+
+      yOffset += 10;
+      doc.text(`${index + 1}`, 20, yOffset);
+      doc.text(item.itemName, 40, yOffset);
+      doc.text(`${item.quantity}`, 100, yOffset);
+      doc.text(`$${itemPrice.toFixed(2)}`, 120, yOffset);
+      doc.text(`$${totalPrice.toFixed(2)}`, 150, yOffset);
+    });
+
+    // Total Balance
+    yOffset += 15;
+    doc.line(20, yOffset, 190, yOffset);
+    doc.text(`Total Balance: $${calculateTotalBalance().toFixed(2)}`, 150, yOffset + 10);
+
+    // Footer Message
+    doc.setFontSize(12);
+    doc.text("THANK YOU! COME AGAIN!", 70, yOffset + 20);
+    doc.text("Email: sellswift@gmail.com", 70, yOffset + 30);
+
+    // Save the generated PDF
+    doc.save(`order-bill-${orderId}.pdf`);
+  };
+
+
 
   return (
       <div className="p-6 max-w-lg mx-auto bg-white shadow-lg rounded-lg">
@@ -216,7 +290,7 @@ function PlaceOrder() {
               <input
                   type="number"
                   value={getQty}
-                  min="1"
+                  min="0"
                   max={selectedItem.quantity}
                   onChange={handleQuantityChange}
                   className="border p-2 rounded w-full"
@@ -275,6 +349,13 @@ function PlaceOrder() {
         <div className="flex justify-end mt-6">
           <button onClick={handlePlaceOrder} className="bg-green-500 text-white p-2 rounded">
             Place Order
+          </button>
+        </div>
+
+        {/*npm install jspdf*/}
+        <div className="flex justify-end mt-6">
+          <button onClick={generateBill} className="bg-red-500 text-white p-2 rounded cursor-pointer">
+            Generate Bill
           </button>
         </div>
       </div>

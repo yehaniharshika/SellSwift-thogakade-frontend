@@ -1,143 +1,163 @@
-import { useState } from "react"
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getCustomers } from "../reducers/CustomerSlice.ts";
+import { getItems } from "../reducers/ItemSlice.ts";
+import { AppDispatch, RootState } from "../store/Store.ts";
+import { createOrder } from "../reducers/OrderSlice.ts"; // Import the createOrder action
 
 function PlaceOrder() {
-  const [selectedCustomer, setSelectedCustomer] = useState("")
-  const [selectedItem, setSelectedItem] = useState<any>(null)
-  const [orderItems, setOrderItems] = useState<any[]>([])
-  const [totalPrice, setTotalPrice] = useState(0)
-  const [quantity, setQuantity] = useState(1)
+  const dispatch = useDispatch<AppDispatch>();
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [getQty, setGetQty] = useState<number>(1);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [totalPrice, setTotalPrice] = useState<number>(0);
+  const [orderId, setOrderId] = useState<string>("");
+  const [orderDate, setOrderDate] = useState<string>("");
 
-  const [items] = useState([
-    { item_id: "I001", name: "Arduino Board", quantity: 10, price: 20.5 },
-    { item_id: "I002", name: "Raspberry Pi", quantity: 5, price: 35.0 }
-  ])
+  // Fetch customers and items from Redux store
+  const customers = useSelector((state: RootState) => state.customers);
+  const items = useSelector((state: RootState) => state.items);
 
-  const [customers] = useState([
-    {
-      id: "C001",
-      name: "John Doe",
-      nic: "123456789V",
-      email: "john@example.com",
-      phone: "1234567890"
-    },
-    {
-      id: "C002",
-      name: "Jane Smith",
-      nic: "987654321X",
-      email: "jane@example.com",
-      phone: "0987654321"
+  useEffect(() => {
+    const today = new Date();
+    const formattedDate = today.toISOString().split("T")[0]; // format as YYYY-MM-DD
+    setOrderDate(formattedDate);
+
+    dispatch(getCustomers());
+    dispatch(getItems());
+    console.log("Fetching items...");
+  }, [dispatch]);
+
+  // Calculate total balance
+  const calculateTotalBalance = () => {
+    return orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  };
+
+  // Handle item selection from dropdown
+  const handleItemSelect = (code: string) => {
+    if (!items || items.length === 0) {
+      console.error("Items array is empty or not loaded yet.");
+      return;
     }
-  ])
 
-  const handleItemSelect = (itemId: string) => {
-    const item = items.find((item) => item.item_id === itemId)
-    setSelectedItem(item || null)
-    setQuantity(1)
-  }
+    const item = items.find((item) => String(item.code) === String(code));
 
+    if (!item) {
+      console.error("Item not found for code:", code);
+      return;
+    }
+
+    setSelectedItem(item);
+    setGetQty(1);
+    setTotalPrice(getQty * selectedItem.price);
+  };
+
+  // Handle quantity input change
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const qty = Number(e.target.value);
+
+    if (selectedItem) {
+      if (qty < 1 || qty > selectedItem.quantity) {
+        alert("Invalid quantity!");
+        return;
+      }
+      setGetQty(qty);
+      setTotalPrice(qty * selectedItem.price);
+    }
+  };
+
+  // Add item to cart
   const handleAddToCart = () => {
-    if (!selectedItem) return
-    if (quantity < 1) {
-      alert("Quantity must be at least 1")
-      return
-    }
-    if (quantity > selectedItem.quantity) {
-      alert("Insufficient stock available!")
-      return
+    if (!selectedItem) return;
+
+    if (getQty < 1 || getQty > selectedItem.quantity) {
+      alert("Invalid quantity!");
+      return;
     }
 
-    const existing = orderItems.find(
-        (orderItem) => orderItem.item_id === selectedItem.item_id
-    )
-    if (existing) {
-      alert("Item already added to the order!")
-      return
+    // Check if item is already in cart
+    const existingItem = orderItems.find((item) => item.code === selectedItem.code);
+
+    if (existingItem) {
+      // Update quantity and total price of existing item
+      const updatedOrderItems = orderItems.map((item) =>
+          item.code === selectedItem.code
+              ? { ...item, quantity: item.quantity + getQty, totalPrice: (item.quantity + getQty) * item.price }
+              : item
+      );
+      setOrderItems(updatedOrderItems);
+    } else {
+      // Add new item to cart
+      const newItem = {
+        ...selectedItem,
+        quantity: getQty,
+        totalPrice: getQty * selectedItem.price,
+      };
+
+      setOrderItems([...orderItems, newItem]);
     }
+  };
 
-    const newOrderItem = {
-      ...selectedItem,
-      quantity,
-      total: selectedItem.price * quantity
-    }
-
-    setOrderItems([...orderItems, newOrderItem])
-    // setSelectedItem(null)
-    setQuantity(1)
-    calculateTotal([...orderItems, newOrderItem])
-  }
-
-  const handleQuantityChange = (itemId: string, quantity: number) => {
-    if (quantity < 1) {
-      alert("Quantity must be at least 1")
-      return
-    }
-
-    const findedItem: any = items.find(
-        (orderItem) => orderItem.item_id === itemId
-    )
-    if (quantity > findedItem?.quantity) {
-      alert("Insufficient stock available!")
-      return
-    }
-
-    const updatedItems = orderItems.map((orderItem) =>
-        orderItem.item_id === itemId
-            ? { ...orderItem, quantity, total: orderItem.price * quantity }
-            : orderItem
-    )
-    setOrderItems(updatedItems)
-    calculateTotal(updatedItems)
-  }
-
-  const handleRemoveItem = (itemId: string) => {
-    const updatedItems = orderItems.filter(
-        (orderItem) => orderItem.item_id !== itemId
-    )
-    setOrderItems(updatedItems)
-    calculateTotal(updatedItems)
-  }
-
-  const handlePlaceOrder = () => {
-    if (!selectedCustomer) {
-      alert("Please select a customer!")
-      return
-    }
-    if (orderItems.length === 0) {
-      alert("Add at least one item to the order!")
-      return
-    }
-
-    const order = {
-      customer: selectedCustomer,
-      items: orderItems,
-      total: totalPrice,
-      date: new Date().toLocaleDateString()
-    }
-
-    console.log("Order placed:", order)
-    resetForm()
-    alert("Order placed successfully!")
-  }
+  // Remove item from cart
+  const handleRemoveItem = (code: string) => {
+    setOrderItems(orderItems.filter((item) => item.code !== code));
+  };
 
   const resetForm = () => {
-    setSelectedCustomer("")
-    setOrderItems([])
-    setTotalPrice(0)
-  }
+    setSelectedCustomer("");
+    setOrderItems([]);
+    setTotalPrice(0);
+    setOrderId("");
+    setOrderDate("");
+    setSelectedItem(null);
+  };
 
-  const calculateTotal = (items: any[]) => {
-    const total = items.reduce(
-        (acc, curr) => acc + curr.quantity * curr.price,
-        0
-    )
-    setTotalPrice(total)
-  }
+  // Place the order
+  // Place the order
+  const handlePlaceOrder = () => {
+    // Create the order data, adding OrderDetailsID to each item
+    const orderData = {
+      orderId: parseInt(orderId, 10),
+      orderDate,
+      id: selectedCustomer,
+      items: orderItems.map((item, index) => ({
+        OrderDetailsID: `OD-${orderId}-${index + 1}`, // Generate a unique ID for each order item
+        code: item.code,
+        getQty: item.quantity,
+        price: item.price,
+        totalPrice: item.totalPrice,
+      })),
+    };
+
+    dispatch(createOrder(orderData));
+    console.log("Order placed:", orderData)
+    alert("Order placed successfully!");
+    resetForm();
+  };
 
   return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold mb-4">Place Order</h2>
+      <div className="p-6 max-w-lg mx-auto bg-white shadow-lg rounded-lg">
+        <h2 className="text-2xl font-bold text-center mb-4">Place Order</h2>
 
-        <div className="mb-4">
+        <label className="block text-sm font-bold mb-2">Order Id</label>
+        <input
+            type="text"
+            value={orderId}
+            className="border p-2 rounded w-full"
+            onChange={(e) => setOrderId(e.target.value)}
+        />
+
+        <label className="block text-sm font-bold mb-2">Order Date</label>
+        <input
+            type="text"
+            value={orderDate}
+            className="border p-2 rounded w-full"
+            onChange={(e) => setOrderDate(e.target.value)}
+        />
+
+        {/* Select Customer */}
+        <div>
           <label className="block text-sm font-bold mb-2">Select Customer</label>
           <select
               value={selectedCustomer}
@@ -147,115 +167,118 @@ function PlaceOrder() {
             <option value="">-- Select Customer --</option>
             {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.name}
+                  {customer.id}
                 </option>
             ))}
           </select>
         </div>
 
-        <div className="mb-4">
+        <div className="mt-4">
           <label className="block text-sm font-bold mb-2">Select Item</label>
-          <select
-              onChange={(e) => handleItemSelect(e.target.value)}
-              className="border p-2 rounded w-full"
-          >
+          <select onChange={(e) => handleItemSelect(e.target.value)} className="border p-2 rounded w-full">
             <option value="">-- Select Item --</option>
             {items.map((item) => (
-                <option key={item.item_id} value={item.item_id}>
-                  {item.name} - ${item.price}
+                <option key={item.code} value={item.code}>
+                  {item.itemName}
                 </option>
             ))}
           </select>
         </div>
 
+        {/* Display Selected Item Details */}
         {selectedItem && (
-            <div className="border p-4 mt-4 rounded">
-              <h4 className="font-bold text-lg">Item Details</h4>
-              <p>Name: {selectedItem.name}</p>
-              <p>Price: ${selectedItem.price.toFixed(2)}</p>
-              <p>Stock: {selectedItem.quantity}</p>
-              <label className="block mt-2">Enter Quantity:</label>
+            <div className="mt-4 p-4 border rounded bg-gray-100">
+              <label className="block text-sm font-bold">Item Name</label>
+              <input
+                  type="text"
+                  value={selectedItem.itemName}
+                  className="border p-2 rounded w-full"
+                  disabled
+              />
+
+              <label className="block text-sm font-bold mt-2">Price</label>
+              <input
+                  type="text"
+                  value={selectedItem.price}
+                  className="border p-2 rounded w-full"
+                  disabled
+              />
+
+              <label className="block text-sm font-bold mt-2">Stock</label>
+              <input
+                  type="text"
+                  value={selectedItem.quantity}
+                  className="border p-2 rounded w-full"
+                  disabled
+              />
+
+              <label className="block text-sm font-bold mt-2">Quantity</label>
               <input
                   type="number"
-                  value={quantity}
+                  value={getQty}
                   min="1"
                   max={selectedItem.quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="border p-2 rounded w-20"
+                  onChange={handleQuantityChange}
+                  className="border p-2 rounded w-full"
               />
-              <button
-                  onClick={handleAddToCart}
-                  className="bg-blue-500 text-white p-2 rounded mt-2"
-              >
+
+              <label className="block text-sm font-bold mt-2">Total Price</label>
+              <input
+                  type="text"
+                  value={totalPrice}
+                  className="border p-2 rounded w-full"
+                  disabled
+              />
+
+              <button onClick={handleAddToCart} className="w-full bg-blue-500 text-white p-2 mt-3 rounded">
                 Add to Cart
               </button>
             </div>
         )}
 
-        {orderItems.length > 0 && (
-            <table className="min-w-full table-auto border-collapse mt-4">
-              <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2">Item Name</th>
-                <th className="border px-4 py-2">Price</th>
-                <th className="border px-4 py-2">Quantity</th>
-                <th className="border px-4 py-2">Total</th>
-                <th className="border px-4 py-2">Actions</th>
+        {/* Order Items Table */}
+        <table className="min-w-full table-auto border-collapse mt-4">
+          <thead>
+          <tr className="bg-gray-100">
+            <th className="border px-4 py-2">Item Name</th>
+            <th className="border px-4 py-2">Price</th>
+            <th className="border px-4 py-2">Quantity</th>
+            <th className="border px-4 py-2">Total</th>
+            <th className="border px-4 py-2">Actions</th>
+          </tr>
+          </thead>
+          <tbody>
+          {orderItems.map((orderItem) => (
+              <tr key={orderItem.code}>
+                <td className="border px-4 py-2">{orderItem.itemName}</td>
+                <td className="border px-4 py-2">${Number(orderItem.price).toFixed(2)}</td>
+                <td className="border px-4 py-2">{orderItem.quantity}</td>
+                <td className="border px-4 py-2">${Number(orderItem.totalPrice).toFixed(2)}</td>
+                <td className="border px-4 py-2 text-center">
+                  <button
+                      onClick={() => handleRemoveItem(orderItem.code)}
+                      className="bg-red-500 text-white p-2 rounded-lg"
+                  >
+                    Remove
+                  </button>
+                </td>
               </tr>
-              </thead>
-              <tbody>
-              {orderItems.map((orderItem) => (
-                  <tr key={orderItem.item_id}>
-                    <td className="border px-4 py-2">{orderItem.name}</td>
-                    <td className="border px-4 py-2">
-                      ${orderItem.price.toFixed(2)}
-                    </td>
-                    <td className="border px-4 py-2">
-                      <input
-                          type="number"
-                          value={orderItem.quantity}
-                          min="1"
-                          max={orderItem.stock}
-                          className="w-16 border p-1 rounded"
-                          onChange={(e) =>
-                              handleQuantityChange(
-                                  orderItem.item_id,
-                                  parseInt(e.target.value)
-                              )
-                          }
-                      />
-                    </td>
-                    <td className="border px-4 py-2">
-                      ${(orderItem.quantity * orderItem.price).toFixed(2)}
-                    </td>
-                    <td className="border px-4 py-2 text-center">
-                      <button
-                          onClick={() => handleRemoveItem(orderItem.item_id)}
-                          className="bg-red-500 text-white p-2 rounded-lg"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-              ))}
-              </tbody>
-            </table>
-        )}
+          ))}
+          </tbody>
+        </table>
 
         <div className="mt-4 font-bold text-xl">
-          Total: ${totalPrice.toFixed(2)}
+          Total Balance: ${calculateTotalBalance().toFixed(2)}
         </div>
 
+        {/* Place Order Button */}
         <div className="flex justify-end mt-6">
-          <button
-              onClick={handlePlaceOrder}
-              className="bg-green-500 text-white p-2 rounded"
-          >
+          <button onClick={handlePlaceOrder} className="bg-green-500 text-white p-2 rounded">
             Place Order
           </button>
         </div>
       </div>
-  )
+  );
 }
 
-export default PlaceOrder
+export default PlaceOrder;

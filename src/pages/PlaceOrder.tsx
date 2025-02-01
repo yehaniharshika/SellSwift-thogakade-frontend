@@ -206,6 +206,7 @@ function PlaceOrder() {
 
     // Save the generated PDF
     doc.save(`order-bill-${orderId}.pdf`);
+    resetForm();
   };
 
 
